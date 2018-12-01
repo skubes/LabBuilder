@@ -18,23 +18,36 @@ using System.Globalization;
 
 namespace LabBuilder
 {
-    class Gen
+
+    public static class Gen
     {
-        public static void Users(int userCount, string dePath, string defpwd, object sender, DoWorkEventArgs dwea)
+
+        // public methods
+
+        public static void Users(int userCount, string dePath, string defaultPassword, object sender, CancelEventArgs doWorkEventArgs)
         {
             int successCount = 0;
             int iterationCount = 0;
             int consecutiveFailures = 0;
             var bw = sender as BackgroundWorker;
+            WorkerWrapper ww = null;
+            if (bw == null)
+            {
+                ww = new WorkerWrapper();
+            }
+            else
+            {
+                ww = new WorkerWrapper(bw);
+            }
             var de = new DirectoryEntry(dePath);
 
-            bw.ReportProgress(0, "Initializing...");
+            ww.ReportProgress(0, "Initializing...");
             var r = new Random();
 
-            ts.TraceEvent(TraceEventType.Verbose, 0, "Creating {0} users...", userCount);
+           
 
             // load and decompress name list if necessary
-            if (names == null)
+            if (_names == null)
             {
                 MemoryStream ms = null;
                 try
@@ -44,7 +57,7 @@ namespace LabBuilder
                     using (DeflateStream ds = new DeflateStream(ms, CompressionMode.Decompress))
                     {
                         ms = null;
-                        names = (List<string>)bf.Deserialize(ds);
+                        _names = (List<string>)_bf.Deserialize(ds);
                     }
                 }
 
@@ -55,26 +68,28 @@ namespace LabBuilder
                 }
 
 
-                ts.TraceEvent(TraceEventType.Verbose, 0, "Initialized {0:N0} possible names...", names.Count);
+                _ts.TraceEvent(TraceEventType.Verbose, 0, "Loaded {0:N0} possible names...", _names.Count);
             }
-            while (successCount < userCount && consecutiveFailures < maxConsecutiveFailuresCreatingUsers)
+            _ts.TraceEvent(TraceEventType.Information, 0, "Creating {0} users...", userCount);
+            while (successCount < userCount && consecutiveFailures < MAX_CONSECUTIVE_FAILURES_CREATING_USERS)
             {
                 // check for cancellation
-                if (bw.CancellationPending)
+                if (ww.CancellationPending)
                 {
-                    dwea.Cancel = true;
+                    doWorkEventArgs.Cancel = true;
                     break;
                 }
+           
+              
 
-
-                bw.ReportProgress((int)((double)successCount / userCount * 100), string.Format(CultureInfo.CurrentCulture, "Created {0:N0} of {1:N0} users", successCount, userCount));
+                ww.ReportProgress((int)((double)successCount / userCount * 100), string.Format(CultureInfo.CurrentCulture, "Created {0:N0} of {1:N0} users", successCount, userCount));
 
 
                 iterationCount++;
 
                 // setup new user info
 
-                string name = names[r.Next(names.Count)];
+                string name = _names[r.Next(_names.Count)];
 
                 string firstname;
                 string lastname;
@@ -130,12 +145,12 @@ namespace LabBuilder
                 // not checking with AD for performance reasons, will just get object exists error
                 // and move on. (Don't optimize the uncommon cases!!)
 
-                if (usedNames.Contains(SAMAccountName)) continue;
-                usedNames.Add(SAMAccountName);
+                if (_usedNames.Contains(SAMAccountName)) continue;
+                _usedNames.Add(SAMAccountName);
 
                 RandomAttributes ra = new RandomAttributes();
 
-                ts.TraceEvent(TraceEventType.Verbose, 0,
+                _ts.TraceEvent(TraceEventType.Verbose, 0,
                     "Creating name: {0}, SAMAccountName: {1}, Title: {2}, Office Phone: {3}, Street: {4}",
                    name, SAMAccountName, ra.Title, ra.OfficePhone, ra.StreetAddress);
 
@@ -164,11 +179,11 @@ namespace LabBuilder
                     newuser.Properties["st"].Value = ra.State;
                     newuser.Properties["streetAddress"].Value = ra.StreetAddress;
                     newuser.Properties["title"].Value = ra.Title;
-                    newuser.Properties["extensionAttribute13"].Value = "{" + defpwd;
+                    newuser.Properties["extensionAttribute13"].Value = "{" + defaultPassword;
 
                     newuser.CommitChanges();
 
-                    newuser.Invoke("SetPassword", new object[] { defpwd });
+                    newuser.Invoke("SetPassword", new object[] { defaultPassword });
                     // get existing value
                     int val = (int)newuser.Properties["userAccountControl"].Value;
 
@@ -192,202 +207,95 @@ namespace LabBuilder
                         // constaint error is given.
 
                         consecutiveFailures++;
-                        ts.TraceEvent(TraceEventType.Error, 0, "creating user {0}. {1}: {2}", name, ce.ErrorCode, ce.ToString());
+                        _ts.TraceEvent(TraceEventType.Error, 0, "creating user {0}. {1}: {2}", name, ce.ErrorCode, ce.ToString());
                     }
                 }
                 catch (Exception e)
                 {
                     consecutiveFailures++;
-                    ts.TraceEvent(TraceEventType.Error, 0, "creating user {0}: {1}", name, e.ToString());
+                    _ts.TraceEvent(TraceEventType.Error, 0, "creating user {0}: {1}", name, e.ToString());
                 }
-               
+
             }
-            if (bw.CancellationPending)
+            if (ww.CancellationPending)
             {
-                bw.ReportProgress(0, string.Format(CultureInfo.CurrentCulture, "Cancelled.  Created {0:N0} users.", successCount));
+                ww.ReportProgress(0, string.Format(CultureInfo.CurrentCulture, "Cancelled.  Created {0:N0} users.", successCount));
             }
-            else if (consecutiveFailures == maxConsecutiveFailuresCreatingUsers)
+            else if (consecutiveFailures == MAX_CONSECUTIVE_FAILURES_CREATING_USERS)
             {
-                bw.ReportProgress(0, string.Format(CultureInfo.CurrentCulture, "Stopped due to too many failures.  Created {0:N0} users.", successCount));
+                ww.ReportProgress(0, string.Format(CultureInfo.CurrentCulture, "Stopped due to too many failures.  Created {0:N0} users.", successCount));
+                _ts.TraceEvent(TraceEventType.Critical, 0, "Stopped due to too many failures.  Created {0:N0} users.", successCount);
             }
             else
             {
-                bw.ReportProgress(0, string.Format(CultureInfo.CurrentCulture, "Complete.  Created {0:N0} users.", successCount));
+                ww.ReportProgress(0, string.Format(CultureInfo.CurrentCulture, "Complete.  Created {0:N0} users.", successCount));
+                _ts.TraceEvent(TraceEventType.Information, 0, "Complete.  Created {0:N0} users.", successCount);
             }
 
             // clean up non-memory resources
             if (de != null)
                 de.Dispose();
         }
-
-        public static void Mail(GenMailArgs args, object sender, DoWorkEventArgs dwea)
+        public static void Users(int usersToCreate, string ouPath, string defaultPassword)
         {
-            ts.TraceEvent(TraceEventType.Verbose, 0, "Gen.Mail started.");
+            // called from powershell / api (non-UI)
 
+            Users(usersToCreate, ouPath, defaultPassword, null, null);
+            _ts.Flush();
+        }
+
+        public static void Mail(GenMailArgs args, object sender, DoWorkEventArgs doWorkEventArgs)
+        {
+            _ts.TraceEvent(TraceEventType.Information, 0, "Gen.Mail started.");
+            if (args == null) throw new ArgumentNullException("args");
             // set connection limit higher
             ServicePointManager.DefaultConnectionLimit = 100;
 
-            ts.TraceEvent(TraceEventType.Information, 0, "Initializing...");
-            mailUsers = MailUsers.GetAllOUMailUsers(args.selectedOUPath);
-            ts.TraceEvent(TraceEventType.Verbose, 0, "Got list of {0} users.", mailUsers.Count);
+            _ts.TraceEvent(TraceEventType.Information, 0, "Initializing...");
+            _mailUsers = MailUsers.GetAllOUMailUsers(args.SelectedOUPath);
+            _ts.TraceEvent(TraceEventType.Verbose, 0, "Got list of {0} mail users.", _mailUsers.Count);
 
             // lower maxadditionalrecips if there are not enough users
-            if (mailUsers.Count - 1 < args.maxAdditionalRecips) args.maxAdditionalRecips = mailUsers.Count - 1;
+            if (_mailUsers.Count - 1 < args.MaxAdditionalRecipients) args.MaxAdditionalRecipients = _mailUsers.Count - 1;
 
             // load and decompress word list if necessary
-            if (words == null)
-            {
-                ts.TraceEvent(TraceEventType.Verbose, 0, "Need to decompress word dictionary...");
-                MemoryStream ms = null;
-                try
-                {
-                    ms = new MemoryStream(LabBuilder.Properties.Resources.words_txt);
-                    using (DeflateStream ds = new DeflateStream(ms, CompressionMode.Decompress))
-                    {
-                        ms = null;
-                        words = (List<string>)bf.Deserialize(ds);
-                    }
-                }
-
-                finally
-                {
-                    if (ms != null)
-                        ms.Dispose();
-                }
-                ts.TraceEvent(TraceEventType.Verbose, 0, "Initialized {0:N0} possible words...", words.Count);
-
-            }
-            ts.TraceEvent(TraceEventType.Information, 0, "Preparing recipient lists...");
-
-            var progress = new GenMailProgress();
-            var bw = sender as BackgroundWorker;
-            mailCounter = 0;
-            // clear dictionaries in case process was interrupted
-            senderAssignments.Clear();
-            mailsRemainingForRecipient.Clear();
+            loadWordListIfNecessary();
+            setupObjectsForNewRun(sender, doWorkEventArgs);
 
             // random instance to generate seeds for other random instances
             var rs = new Random();
 
-            // populate mails remaining dictionary
+            populateMailsRemainingDictionary(args.InitialItems);
 
-            foreach (GenMailUser mu in mailUsers)
-            {
-                if (bw.CancellationPending == true)
-                {
+            // check for cancelation after potentially long running
+            // operations
+            if (ShouldCancel) return;
 
-                    dwea.Cancel = true;
-                    return;
-                }
 
-                mailsRemainingForRecipient.Add(mu.smtpAddress, args.InitialItems);
-            }
+            createSenderAssignments(args, rs);
 
-            foreach (GenMailUser mu in mailUsers)
-            {
-                var to = new MailAddress(mu.smtpAddress, mu.displayName);
+            if (ShouldCancel) return;
 
-                while (mailsRemainingForRecipient[mu.smtpAddress] > 0)
-                {
-                    if (bw.CancellationPending == true)
-                    {
-
-                        dwea.Cancel = true;
-                        return;
-                    }
-
-                    // keep track of # of emails to send for accurate progress later...
-
-                    mailCounter++;
-
-                    // get random user for from address
-
-                    GenMailUser rmu;
-                    do
-                    {
-                        rmu = mailUsers[rs.Next(mailUsers.Count)];
-                    }
-                    while (rmu == mu && mailUsers.Count > 1);
-
-                    var recipList = new List<MailAddress>() { to };
-
-                    // decrement mail count
-                    mailsRemainingForRecipient[mu.smtpAddress]--;
-
-                    // optionally add some random recipients if there are enough people in the mailusers list
-
-                    if (args.maxAdditionalRecips > 0 && rs.Next(1, 101) > (100 - args.percentChanceOfExtraRecips))
-                    {
-                        // add 1 - configured max
-                        var extraRecips = rs.Next(1, args.maxAdditionalRecips + 1);
-
-                        // keep track of additional recips that we don't allow dupes
-
-                        var genMailRecips = new List<GenMailUser>();
-
-                        for (int i = 0; i < extraRecips; i++)
-                        {
-                            GenMailUser recip;
-                            do
-                            {
-                                recip = mailUsers[rs.Next(mailUsers.Count)];
-                            }
-                            while (recip == mu || genMailRecips.Contains(recip)); // don't want duplicates 
-
-                            if (mailsRemainingForRecipient[recip.smtpAddress] > 0)
-                            {
-                                recipList.Add(new MailAddress(recip.smtpAddress, recip.displayName));
-                                mailsRemainingForRecipient[recip.smtpAddress]--;
-                                genMailRecips.Add(recip);
-                            }
-                        }
-                    }
-
-                    if (senderAssignments.ContainsKey(rmu))
-                    {
-                        senderAssignments[rmu].Add(recipList);
-                    }
-                    else
-                    {
-                        var assignments = new List<List<MailAddress>>();
-                        assignments.Add(recipList);
-                        senderAssignments.Add(rmu, assignments);
-                    }
-
-                }
-            }
-            // free up memory 
-            mailsRemainingForRecipient.Clear();
-
-            var tasks = senderAssignments.Count;
-            progress.numberOfSenders = tasks;
-            progress.numberOfMailboxes = mailUsers.Count;
-            progress.numberOfMailsToSend = mailCounter;
+            var tasks = _senderAssignments.Count;
+            _mailProgress.numberOfSenders = tasks;
+            _mailProgress.numberOfMailboxes = _mailUsers.Count;
+            _mailProgress.numberOfMailsToSend = _mailCounter;
 
 
             var actions = new Action[tasks];
             int actionIndex = 0;
 
-            foreach (var senderGenMailUser in senderAssignments.Keys)
+            foreach (var senderGenMailUser in _senderAssignments.Keys)
             {
-                if (bw.CancellationPending == true)
-                {
-
-                    dwea.Cancel = true;
-                    return;
-                }
+                if (ShouldCancel) return;
 
                 var smfua = new SendMailFromUserArgs();
 
-                smfua.backgroundWorker = bw;
-                smfua.doWorkEventArgs = dwea;
-
-                smfua.progress = progress;
                 smfua.User = senderGenMailUser;
                 smfua.randomInstance = new Random(rs.Next());
                 smfua.defaultPassword = args.DefaultPassword;
-                smfua.percentChanceOfAttachments = args.percentChanceOfAttachments;
-                smfua.maxAttachments = args.maxAttachments;
+                smfua.percentChanceOfAttachments = args.PercentChanceOfAttachments;
+                smfua.maxAttachments = args.MaxAttachments;
 
 
                 actions[actionIndex] = () =>
@@ -400,11 +308,11 @@ namespace LabBuilder
             }
 
 
-            ts.TraceEvent(TraceEventType.Information, 0, "Starting send mail threads...");
+            _ts.TraceEvent(TraceEventType.Information, 0, "Starting send mail threads...");
 
 
-            if (mailCounter < args.InitialItems * mailUsers.Count)
-                ts.TraceEvent(TraceEventType.Information, 0, "Since some items will be received by multiple mailboxes,\n  {0:N0} items per mailbox can be achieved by sending {1:N0} item(s) total.", args.InitialItems, mailCounter);
+            if (_mailCounter < args.InitialItems * _mailUsers.Count)
+                _ts.TraceEvent(TraceEventType.Information, 0, "Since some items will be received by multiple mailboxes,\n  {0:N0} items per mailbox can be achieved by sending {1:N0} item(s) total.", args.InitialItems, _mailCounter);
             var opts = new ParallelOptions();
 
             //sanity check thread count
@@ -425,23 +333,175 @@ namespace LabBuilder
 
             // clear sender assignments
 
-            senderAssignments.Clear();
+            _senderAssignments.Clear();
 
-            if (dwea.Cancel)
+            if (_mailProgress.cancelled > 0)
             {
-                if (progress.cancelled == 2)
-                    ts.TraceEvent(TraceEventType.Information, 0, "Mailbox population cancelled due to too many consecutive errors.");
-                if (progress.cancelled == 1)
-                    ts.TraceEvent(TraceEventType.Information, 0, "Mailbox population cancelled by user.");
+                if (_mailProgress.cancelled == 2)
+                    _ts.TraceEvent(TraceEventType.Warning, 0, "Mailbox population cancelled due to too many consecutive errors.");
+                if (_mailProgress.cancelled == 1)
+                    _ts.TraceEvent(TraceEventType.Information, 0, "Mailbox population cancelled by user.");
             }
             else
             {
-                ts.TraceEvent(TraceEventType.Information, 0, "Done sending mail.");
-                if (mailCounter < args.InitialItems * mailUsers.Count)
-                    ts.TraceEvent(TraceEventType.Information, 0, "Some messages were sent to multiple mailboxes.\n  Sent {0:N0} item(s) total in order for each mailbox to receive {1:N0} item(s).", mailCounter, args.InitialItems);
+                _ts.TraceEvent(TraceEventType.Information, 0, "Done sending mail.");
+                if (_mailCounter < args.InitialItems * _mailUsers.Count)
+                    _ts.TraceEvent(TraceEventType.Information, 0, "Some messages were sent to multiple mailboxes.\n  Sent {0:N0} item(s) total in order for each mailbox to receive {1:N0} item(s).", _mailCounter, args.InitialItems);
 
             }
 
+        }
+        public static void Mail(GenMailArgs args)
+        {
+            // called from powershell / api (non-UI)
+
+            Mail(args, null, null);
+            // flush log after run
+            _ts.Flush();
+        }
+       
+
+        public static string InitializeFileLogging()
+        {
+            var tl = new TxtFileTraceListener();
+            _ts.Listeners.Add(tl);
+            // to do:  set trace level based on parameter
+            _ts.Switch.Level = SourceLevels.Verbose;
+            return tl.LogFilePath;
+
+        }
+
+        // private methods
+
+        private static void createSenderAssignments(GenMailArgs args, Random rs)
+        {
+            _ts.TraceEvent(TraceEventType.Information, 0, "Creating sender assignments...");
+            foreach (GenMailUser mu in _mailUsers)
+            {
+                var to = new MailAddress(mu.smtpAddress, mu.displayName);
+
+                while (_mailsRemainingForRecipient[mu.smtpAddress] > 0)
+                {
+                    if (ShouldCancel) return;
+
+                    // keep track of # of emails to send for accurate progress later...
+
+                    _mailCounter++;
+
+                    // get random user for from address
+
+                    GenMailUser rmu;
+                    do
+                    {
+                        rmu = _mailUsers[rs.Next(_mailUsers.Count)];
+                    }
+                    while (rmu == mu && _mailUsers.Count > 1);
+
+                    var recipList = new List<MailAddress>() { to };
+
+                    // decrement mail count
+                    _mailsRemainingForRecipient[mu.smtpAddress]--;
+
+                    // optionally add some random recipients if there are enough people in the mailusers list
+
+                    if (args.MaxAdditionalRecipients > 0 && rs.Next(1, 101) > (100 - args.PercentChanceOfExtraRecipients))
+                    {
+                        // add 1 - configured max
+                        var extraRecips = rs.Next(1, args.MaxAdditionalRecipients + 1);
+
+                        // keep track of additional recips that we don't allow dupes
+
+                        var genMailRecips = new List<GenMailUser>();
+
+                        for (int i = 0; i < extraRecips; i++)
+                        {
+                            GenMailUser recip;
+                            do
+                            {
+                                recip = _mailUsers[rs.Next(_mailUsers.Count)];
+                            }
+                            while (recip == mu || genMailRecips.Contains(recip)); // don't want duplicates 
+
+                            if (_mailsRemainingForRecipient[recip.smtpAddress] > 0)
+                            {
+                                recipList.Add(new MailAddress(recip.smtpAddress, recip.displayName));
+                                _mailsRemainingForRecipient[recip.smtpAddress]--;
+                                genMailRecips.Add(recip);
+                            }
+                        }
+                    }
+
+                    if (_senderAssignments.ContainsKey(rmu))
+                    {
+                        _senderAssignments[rmu].Add(recipList);
+                    }
+                    else
+                    {
+                        var assignments = new List<List<MailAddress>>();
+                        assignments.Add(recipList);
+                        _senderAssignments.Add(rmu, assignments);
+                    }
+
+                }
+            }
+            // free up memory 
+            _mailsRemainingForRecipient.Clear();
+        }
+
+        private static void populateMailsRemainingDictionary(int initialItems)
+        {
+            foreach (GenMailUser mu in _mailUsers)
+            {
+                if (ShouldCancel) return;
+                _mailsRemainingForRecipient.Add(mu.smtpAddress, initialItems);
+            }
+        }
+
+        private static void setupObjectsForNewRun(object sender, DoWorkEventArgs dea)
+        {
+            var bw = sender as BackgroundWorker;
+
+            if (sender == null)
+            {
+                _ww = new WorkerWrapper();
+            }
+            else
+            {
+                _ww = new WorkerWrapper(bw);
+            }
+            _doWorkEventArgs = dea;
+            _mailCounter = 0;
+            // clear dictionaries in case process was interrupted
+            // before completion on previous run
+            _senderAssignments.Clear();
+            _mailsRemainingForRecipient.Clear();
+            _mailProgress = new GenMailProgress();
+        }
+
+        private static void loadWordListIfNecessary()
+        {
+            if (_words == null)
+            {
+                _ts.TraceEvent(TraceEventType.Verbose, 0, "Need to decompress word dictionary...");
+                MemoryStream ms = null;
+                try
+                {
+                    ms = new MemoryStream(LabBuilder.Properties.Resources.words_txt);
+                    using (DeflateStream ds = new DeflateStream(ms, CompressionMode.Decompress))
+                    {
+                        ms = null;
+                        _words = (List<string>)_bf.Deserialize(ds);
+                    }
+                }
+
+                finally
+                {
+                    if (ms != null)
+                        ms.Dispose();
+                }
+                _ts.TraceEvent(TraceEventType.Verbose, 0, "Initialized {0:N0} possible words...", _words.Count);
+
+            }
         }
 
 
@@ -463,44 +523,36 @@ namespace LabBuilder
                 curSmtpClient.Credentials = fromMu.networkCred;
 
                 var from = new MailAddress(fromMu.smtpAddress, fromMu.displayName);
-                var progress = args.progress;
-
-                var bw = args.backgroundWorker;
-                var dwea = args.doWorkEventArgs;
                 var r = args.randomInstance;
                 var mailBodyStyle = new BodyCompositionRules();
 
                 // only trace here if worker is not being cancelled.  Otherwise if verbose tracing is enabled it can hang UI.
-                if (!dwea.Cancel) ts.TraceEvent(TraceEventType.Verbose, 0, "Starting sending mail from {0}", fromMu.displayName);
+                if (!_ww.CancellationPending) _ts.TraceEvent(TraceEventType.Verbose, 0, "Starting sending mail from {0}", fromMu.displayName);
 
-                foreach (var mal in senderAssignments[fromMu])
+                foreach (var mal in _senderAssignments[fromMu])
                 {
                     // check for user cancellation 
 
-                    if (bw.CancellationPending)
+                    if (ShouldCancel)
                     {
-                        if (!dwea.Cancel) dwea.Cancel = true;
-
-                        Interlocked.CompareExchange(ref progress.cancelled, 1, 0);
-
-                        bw.ReportProgress(0, progress);
+                        Interlocked.CompareExchange(ref _mailProgress.cancelled, 1, 0);
+                        _ww.ReportProgress(0, _mailProgress);
                         return;
-
                     }
 
                     // check for too many errors
 
-                    if (progress.consecutiveErrorsSending >= maxConsecutiveFailuresSending)
+                    if (_mailProgress.consecutiveErrorsSending >= MAX_CONSECUTIVE_FAILURES_SENDING_MAIL)
                     {
-                        if (!dwea.Cancel) dwea.Cancel = true;
+             
 
-                        if (Interlocked.Exchange(ref progress.cancelled, 2) == 0)
+                        if (Interlocked.Exchange(ref _mailProgress.cancelled, 2) == 0)
                         {
                             //only trace this once, if not already pending cancel
-                            ts.TraceEvent(TraceEventType.Critical, 0, "Stopping after {0} consecutive errors", maxConsecutiveFailuresSending);
+                            _ts.TraceEvent(TraceEventType.Critical, 0, "Stopping after {0} consecutive errors", MAX_CONSECUTIVE_FAILURES_SENDING_MAIL);
                         }
 
-                        bw.ReportProgress(0, progress);
+                        _ww.ReportProgress(0, _mailProgress);
                         return;
 
                     }
@@ -540,15 +592,15 @@ namespace LabBuilder
                     try
                     {
                         curSmtpClient.Send(message);
-                        Interlocked.Increment(ref progress.messagesSent);
-                        Interlocked.Exchange(ref progress.consecutiveErrorsSending, 0);
+                        Interlocked.Increment(ref _mailProgress.messagesSent);
+                        Interlocked.Exchange(ref _mailProgress.consecutiveErrorsSending, 0);
 
                     }
                     catch (Exception e)
                     {
-                        Interlocked.Increment(ref progress.errorsSending);
-                        Interlocked.Increment(ref progress.consecutiveErrorsSending);
-                        ts.TraceEvent(TraceEventType.Error, 0, "sending message from user {0}.  {1}", fromMu.displayName, e.ToString());
+                        Interlocked.Increment(ref _mailProgress.errorsSending);
+                        Interlocked.Increment(ref _mailProgress.consecutiveErrorsSending);
+                        _ts.TraceEvent(TraceEventType.Error, 0, "sending message from user {0}.  {1}", fromMu.displayName, e.ToString());
                     }
                     finally
                     {
@@ -557,12 +609,12 @@ namespace LabBuilder
                     }
 
 
-                    bw.ReportProgress(0, progress);
+                    _ww.ReportProgress(0, _mailProgress);
                 }
 
-                Interlocked.Increment(ref progress.sendersDone);
-                ts.TraceEvent(TraceEventType.Verbose, 0, "Finished sending from {0}", fromMu.displayName);
-                bw.ReportProgress(0, progress);
+                Interlocked.Increment(ref _mailProgress.sendersDone);
+                _ts.TraceEvent(TraceEventType.Verbose, 0, "Finished sending from {0}", fromMu.displayName);
+                _ww.ReportProgress(0, _mailProgress);
             }
 
         }
@@ -595,7 +647,7 @@ namespace LabBuilder
         private static string getRandomBody(Random r, BodyCompositionRules bcr)
         {
             StringBuilder sb = new StringBuilder();
-            int numwords = r.Next(10, maxWordsInBody + 1);
+            int numwords = r.Next(10, MAX_WORDS_IN_BODY + 1);
             int wordsInSentence = 1;
             int sentencesInParagraph = 1;
             bcr.currentSentenceLength = r.Next(3, 18);
@@ -603,7 +655,7 @@ namespace LabBuilder
 
             for (int i = 0; i < numwords; i++)
             {
-                string word = words[r.Next(words.Count)];
+                string word = _words[r.Next(_words.Count)];
                 if (wordsInSentence == 1)
                 {
                     string capitalFirstLetter = word.Substring(0, 1).ToUpper(System.Globalization.CultureInfo.CurrentCulture);
@@ -651,53 +703,110 @@ namespace LabBuilder
         private static string getRandomSubject(Random r)
         {
             StringBuilder sb = new StringBuilder();
-            int numwords = r.Next(2, maxWordsInSubject + 1);
+            int numwords = r.Next(2, MAX_WORDS_IN_SUBJECT + 1);
             for (int i = 0; i < numwords; i++)
             {
-                sb.Append(words[r.Next(words.Count)] + " ");
+                sb.Append(_words[r.Next(_words.Count)] + " ");
             }
 
             return sb.ToString();
         }
-        readonly static TraceSource ts = MainWindow.ts;
-        static BinaryFormatter bf = new BinaryFormatter();
-        static List<string> names;
-        static List<string> words;
-        static HashSet<string> usedNames = new HashSet<string>();
-        const int maxConsecutiveFailuresCreatingUsers = 500;
-        const int maxConsecutiveFailuresSending = 1000;
-        static List<GenMailUser> mailUsers = new List<GenMailUser>();
-        const int maxWordsInSubject = 7;
-        const int maxWordsInBody = 300;
-        static Dictionary<GenMailUser, List<List<MailAddress>>> senderAssignments = new Dictionary<GenMailUser, List<List<MailAddress>>>();
-        static Dictionary<string, int> mailsRemainingForRecipient = new Dictionary<string, int>();
-        private static int mailCounter;
 
+        // class members
+
+        const int MAX_CONSECUTIVE_FAILURES_CREATING_USERS = 500;
+        const int MAX_CONSECUTIVE_FAILURES_SENDING_MAIL = 1000;
+        const int MAX_WORDS_IN_SUBJECT = 7;
+        const int MAX_WORDS_IN_BODY = 300;
+
+        static TraceSource _ts = MainWindow.ts;
+        static BinaryFormatter _bf = new BinaryFormatter();
+        static List<string> _names;
+        static List<string> _words;
+        static HashSet<string> _usedNames = new HashSet<string>();
+
+        static List<GenMailUser> _mailUsers = new List<GenMailUser>();
+
+        static Dictionary<GenMailUser, List<List<MailAddress>>> _senderAssignments = new Dictionary<GenMailUser, List<List<MailAddress>>>();
+        static Dictionary<string, int> _mailsRemainingForRecipient = new Dictionary<string, int>();
+        static int _mailCounter;
+        static WorkerWrapper _ww = null;
+        static DoWorkEventArgs _doWorkEventArgs = null;
+        static GenMailProgress _mailProgress;
+
+        /// <summary>
+        ///   Gets a value indicating whether the worker thread should be canceled.
+        ///   If so,  DoWorkEventArgs.Cancel is also set to true
+        /// </summary>
+        public static bool ShouldCancel
+        {
+            get
+            {
+                // check for cancelation
+                if (_ww.CancellationPending == true)
+                {
+                    _doWorkEventArgs.Cancel = true;
+                    return true;
+                }
+                return false;
+            }
+        }
+
+     
     }
+    class WorkerWrapper
+    {
+        BackgroundWorker _bw = null;
 
+        public WorkerWrapper(BackgroundWorker b)
+        {
+            _bw = b;
+        }
+
+        public WorkerWrapper() { }
+
+        public void ReportProgress(int percent, object state)
+        {
+            if (_bw != null)
+                _bw.ReportProgress(percent, state);
+        }
+        public bool CancellationPending
+        {
+            get
+            {
+                if (_bw != null)
+                {
+                    return _bw.CancellationPending;
+                }
+                else return false;
+
+            }
+
+        }
+    }
     class BodyCompositionRules
     {
         public int currentSentenceLength;
         public int currentParagraphLength;
     }
-    class GenUsersArgs
+    public class GenUsersArgs
     {
-        public string DEPath;
-        public int UserCount;
-        public string DefaultPassword;
+        public string DEPath { get; set; }
+        public int UserCount { get; set; }
+        public string DefaultPassword { get; set; }
 
     }
 
-    class GenMailArgs
+    public class GenMailArgs
     {
-        public string selectedOUPath;
-        public string DefaultPassword;
-        public int InitialItems;
-        public int Threads;
-        public int percentChanceOfExtraRecips;
-        public int maxAdditionalRecips;
-        public int percentChanceOfAttachments;
-        public int maxAttachments;
+        public string SelectedOUPath { get; set; }
+        public string DefaultPassword { get; set; }
+        public int InitialItems { get; set; }
+        public int Threads { get; set; }
+        public int PercentChanceOfExtraRecipients { get; set; }
+        public int MaxAdditionalRecipients { get; set; }
+        public int PercentChanceOfAttachments { get; set; }
+        public int MaxAttachments { get; set; }
     }
 
     public class GenMailSettings
@@ -705,8 +814,8 @@ namespace LabBuilder
         int initialItems;
         string defaultPassword;
         int threads;
-        int percentChanceOfExtraRecips;
-        int maxAdditionalRecips;
+        int percentChanceOfExtraRecipients;
+        int maxAdditionalRecipients;
         int percentChanceOfAttachments;
         int maxAttachments;
 
@@ -716,8 +825,8 @@ namespace LabBuilder
             initialItems = 100;
             threads = 4;
             percentChanceOfAttachments = 10;
-            percentChanceOfExtraRecips = 20;
-            maxAdditionalRecips = 5;
+            percentChanceOfExtraRecipients = 20;
+            maxAdditionalRecipients = 5;
             maxAttachments = 5;
 
         }
@@ -738,7 +847,7 @@ namespace LabBuilder
                 defaultPassword = value;
             }
         }
-        
+
         public int Threads
         {
             get { return threads; }
@@ -748,20 +857,20 @@ namespace LabBuilder
                 threads = value;
             }
         }
-        public int PercentChanceOfExtraRecips
+        public int PercentChanceOfExtraRecipients
         {
-            get { return percentChanceOfExtraRecips; }
+            get { return percentChanceOfExtraRecipients; }
             set
             {
-                percentChanceOfExtraRecips = value;
+                percentChanceOfExtraRecipients = value;
             }
         }
-        public int MaxAdditionalRecips
+        public int MaxAdditionalRecipients
         {
-            get { return maxAdditionalRecips; }
+            get { return maxAdditionalRecipients; }
             set
             {
-                maxAdditionalRecips = value;
+                maxAdditionalRecipients = value;
             }
         }
         public int PercentChanceOfAttachments
@@ -789,21 +898,18 @@ namespace LabBuilder
     {
 
         public GenMailUser User;
-        public GenMailProgress progress;
-        public BackgroundWorker backgroundWorker;
-        public DoWorkEventArgs doWorkEventArgs;
+
         public Random randomInstance;
         public string defaultPassword;
         public int percentChanceOfAttachments;
         public int maxAttachments;
     }
-    
+
 
     class GenMailUser
     {
         public string smtpAddress;
         public int exchangeDBIndex;
-        public string exchangeDBName;
         public string password;
         public string displayName;
         public string sAMAccountName;
@@ -824,3 +930,4 @@ namespace LabBuilder
     }
 
 }
+

@@ -11,12 +11,12 @@ namespace CreateListStringFromTextFile
     {
         static void Main(string[] args)
         {
-            string inputFilePath = string.Empty;
+            string inputFile = string.Empty;
             string encodingsetting = string.Empty;
             if (args.Length == 2)
             {
 
-                inputFilePath = args[0];
+                inputFile = args[0];
                 encodingsetting = args[1];
             }
             else
@@ -26,7 +26,7 @@ namespace CreateListStringFromTextFile
             }
 
 
-            StreamReader sr;
+            StreamReader sr = null;
 
             // try to open file
             try
@@ -34,12 +34,12 @@ namespace CreateListStringFromTextFile
 
                 if (encodingsetting == "2")
                 {
-                    sr = new StreamReader(inputFilePath, Encoding.UTF8);
+                    sr = new StreamReader(inputFile, Encoding.UTF8);
                 }
                 else
                 {
 
-                    sr = new StreamReader(inputFilePath, Encoding.Default);
+                    sr = new StreamReader(inputFile, Encoding.Default);
                 }
 
             }
@@ -48,6 +48,11 @@ namespace CreateListStringFromTextFile
                 Console.WriteLine("Exception opening file: {0}", e.Message);
                 return;
             }
+          
+
+            var inputFilePath = Path.GetFullPath(inputFile);
+            Console.WriteLine("Running CreateListStringFromTextFile.exe");
+            Console.WriteLine("Opened {0}", inputFilePath);
 
             var list = new List<string>();
             string line;
@@ -56,16 +61,38 @@ namespace CreateListStringFromTextFile
                 list.Add(line);
 
             }
-
+            
             Console.WriteLine("Added {0} items.", list.Count);
-            string fileName = inputFilePath.Substring(inputFilePath.LastIndexOf('\\') + 1);
+              
+            string outputPath = inputFilePath + ".bin";
+           
 
             var binFormatter = new BinaryFormatter();
-            var outfile = File.Open(fileName + ".bin", FileMode.Create);
-            using (DeflateStream ds = new DeflateStream(outfile, CompressionLevel.Optimal))
+            FileStream outfile = null;
+            try
             {
-                binFormatter.Serialize(ds, list);
+                outfile = File.Open(outputPath, FileMode.Create);
+            
+                using (DeflateStream ds = new DeflateStream(outfile, CompressionLevel.Optimal))
+                {
+                    outfile = null;
+                    binFormatter.Serialize(ds, list);
+                }
             }
+            finally
+            {
+                if (outfile != null)
+                {
+                    outfile.Dispose();
+                }
+                    
+            }
+           
+            
+           
+
+            Console.WriteLine("Done.");
+
 
         }
     }

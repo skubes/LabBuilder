@@ -1,20 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using System.Diagnostics;
 using System.ComponentModel;
-using System.Threading;
 using System.Globalization;
 
 namespace LabBuilder
@@ -61,7 +48,7 @@ namespace LabBuilder
                 debugOn.IsChecked = true;
 #endif
 
-                 topOU = new DirectoryEntryContext();
+                
                 OUBrowser.Items.Add(topOU);
                 ExchangeDBListBox.ItemsSource = ExchangeDatabases.DBs;
 
@@ -84,10 +71,10 @@ namespace LabBuilder
         {
             Dispose(true);
             GC.SuppressFinalize(this);
-            
+            return;
         }
 
-        private void Dispose(bool disposing)
+        private static void Dispose(bool disposing)
         {
             if (disposing)
             {
@@ -198,7 +185,7 @@ namespace LabBuilder
         internal static TraceSource ts = new TraceSource("EnvironmentGenLoggerPrefix");
         static bool ouSelected = false;
         static bool userClosed = false;
-        DirectoryEntryContext topOU;
+        static DirectoryEntryContext topOU = new DirectoryEntryContext();
 
         static GenMailSettings gs = new GenMailSettings();
 
@@ -347,14 +334,14 @@ Get-User -resultsize {0} -Filter {{-not(alias -like '*' )}} | Select-Object -Exp
                 if (MessageBox.Show(string.Format(CultureInfo.CurrentCulture, LabBuilder.Properties.Resources.ConfirmMailboxPopulationWindowTextFormat, selectedOUDEContext.ObjectName), LabBuilder.Properties.Resources.ConfirmationWindowTitle, MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.No)
                     return;
                 var args = new GenMailArgs();
-                args.selectedOUPath = selectedOUDEContext.DE.Path;
+                args.SelectedOUPath = selectedOUDEContext.DE.Path;
                 args.DefaultPassword = gs.DefaultPassword;
                 args.InitialItems = gs.InitialItems;
                 args.Threads = gs.Threads;
-                args.maxAdditionalRecips = gs.MaxAdditionalRecips;
-                args.maxAttachments = gs.MaxAttachments;
-                args.percentChanceOfAttachments = gs.PercentChanceOfAttachments;
-                args.percentChanceOfExtraRecips = gs.PercentChanceOfExtraRecips;
+                args.MaxAdditionalRecipients = gs.MaxAdditionalRecipients;
+                args.MaxAttachments = gs.MaxAttachments;
+                args.PercentChanceOfAttachments = gs.PercentChanceOfAttachments;
+                args.PercentChanceOfExtraRecipients = gs.PercentChanceOfExtraRecipients;
 
                 _bw_send.RunWorkerAsync(args);
                 StartMailGenButton.IsEnabled = false;

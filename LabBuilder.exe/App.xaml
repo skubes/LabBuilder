@@ -1,7 +1,8 @@
 ﻿<Application x:Class="LabBuilder.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             StartupUri="MainWindow.xaml">
+           
+             Startup="go">
     <Application.Resources>
         <LinearGradientBrush x:Key="LightBrush"
                              StartPoint="0,0"

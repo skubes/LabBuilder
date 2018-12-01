@@ -1,16 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.DirectoryServices;
-using System.Windows.Input;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Globalization;
+using System.Runtime.InteropServices;
 
 namespace LabBuilder
 {
+   
     class DirectoryEntryContext : IDisposable
     {
         static readonly DirectoryEntry _rootde = new DirectoryEntry("LDAP://RootDSE");
@@ -164,13 +160,6 @@ namespace LabBuilder
                             return database.DatabaseName == exchangeDB;
                         });
 
-                        // if we don't have DB in the list save name
-                        if (tmpuser.exchangeDBIndex == -1)
-                        {
-
-                            tmpuser.exchangeDBName = exchangeDB;
-                        }
-
                         _userList.Add(tmpuser);
                     }
                     catch (Exception e)
@@ -211,6 +200,7 @@ namespace LabBuilder
     }
     class ExchangeDatabases
     {
+        private ExchangeDatabases() { }
         static List<ExchangeDatabase> _exchangeDBs = new List<ExchangeDatabase>();
         static DirectorySearcher _ds = CreateAndInitializeDS();
        
@@ -250,6 +240,51 @@ namespace LabBuilder
         }
 
 
+    }
+
+    class ADHelper
+    {
+        public static bool isValidOUPath(string oupath)
+        {
+            
+            DirectoryEntry de = null;
+            try
+            {
+
+                de = new DirectoryEntry(oupath);
+                string tmp = de.Name;
+                return true;
+
+            }
+            catch (COMException )
+            {
+                return false;
+            }
+
+            finally
+            {
+                if (de != null)
+                    de.Dispose();
+            }
+        
+        }
+
+        internal static string fixupOuPath(string opath)
+        {
+            if (!opath.StartsWith("LDAP://", StringComparison.OrdinalIgnoreCase))
+            {
+                opath = "LDAP://" + opath;
+            }
+            else
+                if (!opath.StartsWith("LDAP://", StringComparison.Ordinal))
+            {
+                // ldap needs to be capitalized for some reason
+                opath = "LDAP://" + opath.Substring(7);
+            }
+            return opath;
+        }
+
+        private ADHelper() { }
     }
 
 

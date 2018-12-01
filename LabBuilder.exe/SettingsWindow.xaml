@@ -45,7 +45,7 @@
                  Margin="10,12,0,0"
                  Grid.Row="4"
                  TextWrapping="Wrap"
-                 Text="{Binding MaxAdditionalRecips}"
+                 Text="{Binding MaxAdditionalRecipients}"
                  VerticalAlignment="Top"
                  Width="120"
                  TabIndex="5" />
@@ -117,7 +117,7 @@
                  Margin="10,10,0,-1"
                  Grid.Row="3"
                  TextWrapping="Wrap"
-                 Text="{Binding PercentChanceOfExtraRecips}"
+                 Text="{Binding PercentChanceOfExtraRecipients}"
                  VerticalAlignment="Top"
                  Width="120"
                  TabIndex="4" />
