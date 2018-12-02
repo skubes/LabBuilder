@@ -161,21 +161,12 @@ namespace LabBuilder
 
             if (_arguments.ContainsKey(keyName))
             {
-                int number;
-                if (int.TryParse(_arguments[keyName], out number))
+                if (int.TryParse(_arguments[keyName], out int number))
                 {
                     return number;
                 }
-                else
-                {
-                    // default
-                    return def;
-                }
             }
-            else
-            {
-                return def;
-            }
+            return def;
 
         }
         static string getStringArgValueorDefault(string keyName, string def)
@@ -188,16 +179,8 @@ namespace LabBuilder
                 {
                     return _arguments[keyName];
                 }
-                else
-                {
-                    // default
-                    return def;
-                }
             }
-            else
-            {
-                return def;
-            }
+            return def;
 
         }
 
