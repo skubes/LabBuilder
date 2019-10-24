@@ -28,6 +28,12 @@ namespace LabBuilder
             var bw = sender as BackgroundWorker;
             var de = new DirectoryEntry(dePath);
 
+            // without this AuthenticationType property, one of my dev boxes would 
+            // prompt for smart card during "setpassword" call
+            // seemed to be from re-binding to LDAP using SSL
+            // see: https://social.technet.microsoft.com/Forums/scriptcenter/en-US/d2c9347c-cfd6-44a8-8baf-7c5202999177/adsi-setpassword-requests-smart-card-pin?forum=ITCG
+            de.AuthenticationType = AuthenticationTypes.Secure | AuthenticationTypes.Signing | AuthenticationTypes.Sealing;
+
             bw.ReportProgress(0, "Initializing...");
             var r = new Random();
 
