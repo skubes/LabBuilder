@@ -231,16 +231,16 @@ namespace LabBuilder
         {
             if (OUBrowser.SelectedItem is DirectoryEntryContext && ExchangeDBListBox.SelectedItem is ExchangeDatabase)
             {
-                DirectoryEntryContext sel = OUBrowser.SelectedItem as DirectoryEntryContext;
-                ExchangeDatabase dbsel = ExchangeDBListBox.SelectedItem as ExchangeDatabase;
+                var sel = OUBrowser.SelectedItem as DirectoryEntryContext;
+                var dbsel = ExchangeDBListBox.SelectedItem as ExchangeDatabase;
 
                 //  make powershell command
                 string powershellcommand = "";
                 string powershell_command_format = "";
-                string friendlyOUPath = "";
+
                 if (sel.DE.Path.Length > 0)
                 {
-                    friendlyOUPath = "'" + sel.DE.Path.Substring(7) + "'";
+                    string friendlyOUPath = "'" + sel.DE.Path.Substring(7) + "'";
                     powershell_command_format = @"
 Get-User -OrganizationalUnit {0} -resultsize {1} -Filter {{-not(alias -like '*' )}} | Select-Object -ExpandProperty samAccountName | Enable-Mailbox -Database '{2}' | ft
 ";

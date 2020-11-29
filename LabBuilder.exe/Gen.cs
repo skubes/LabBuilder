@@ -18,7 +18,7 @@ using System.Globalization;
 
 namespace LabBuilder
 {
-    class Gen
+    public class Gen
     {
         public static void Users(int userCount, string dePath, string defpwd, object sender, DoWorkEventArgs dwea)
         {
@@ -244,24 +244,7 @@ namespace LabBuilder
             // load and decompress word list if necessary
             if (words == null)
             {
-                ts.TraceEvent(TraceEventType.Verbose, 0, "Need to decompress word dictionary...");
-                MemoryStream ms = null;
-                try
-                {
-                    ms = new MemoryStream(LabBuilder.Properties.Resources.words_txt);
-                    using (DeflateStream ds = new DeflateStream(ms, CompressionMode.Decompress))
-                    {
-                        ms = null;
-                        words = (List<string>)bf.Deserialize(ds);
-                    }
-                }
-
-                finally
-                {
-                    if (ms != null)
-                        ms.Dispose();
-                }
-                ts.TraceEvent(TraceEventType.Verbose, 0, "Initialized {0:N0} possible words...", words.Count);
+                LoadDictionary();
 
             }
             ts.TraceEvent(TraceEventType.Information, 0, "Preparing recipient lists...");
@@ -451,6 +434,28 @@ namespace LabBuilder
 
         }
 
+        public static void LoadDictionary()
+        {
+            ts.TraceEvent(TraceEventType.Verbose, 0, "Decompress and load word dictionary...");
+            MemoryStream ms = null;
+            try
+            {
+                ms = new MemoryStream(LabBuilder.Properties.Resources.words_txt);
+                using (DeflateStream ds = new DeflateStream(ms, CompressionMode.Decompress))
+                {
+                    ms = null;
+                    words = (List<string>)bf.Deserialize(ds);
+                }
+            }
+
+            finally
+            {
+                if (ms != null)
+                    ms.Dispose();
+            }
+            ts.TraceEvent(TraceEventType.Verbose, 0, "Initialized {0:N0} possible words...", words.Count);
+        }
+
 
         // this method is called from Parallel Invoke, so multiple threads will be executing this concurrently
         private static void SendMailFromUser(SendMailFromUserArgs args)
@@ -465,7 +470,7 @@ namespace LabBuilder
 
             }
 
-            using (var curSmtpClient = new SmtpClient(MailUsers.dblist[fromMu.exchangeDBIndex].CurrentServer))
+            using (var curSmtpClient = new SmtpClient(MailUsers.dblist[fromMu.exchangeDBIndex].CurrentServer, 587))
             {
                 curSmtpClient.Credentials = fromMu.networkCred;
 
@@ -574,7 +579,7 @@ namespace LabBuilder
 
         }
 
-        private static Attachment getRandomAttachment(Random r, BodyCompositionRules bcr)
+        public static Attachment getRandomAttachment(Random r, BodyCompositionRules bcr)
         {
             string attachmentName = getRandomSubject(r).Replace("'", "").TrimEnd();
             Attachment attach;
@@ -599,7 +604,7 @@ namespace LabBuilder
         }
 
 
-        private static string getRandomBody(Random r, BodyCompositionRules bcr)
+        public static string getRandomBody(Random r, BodyCompositionRules bcr)
         {
             StringBuilder sb = new StringBuilder();
             int numwords = r.Next(10, maxWordsInBody + 1);
@@ -655,7 +660,7 @@ namespace LabBuilder
             return sb.ToString();
         }
 
-        private static string getRandomSubject(Random r)
+        public static string getRandomSubject(Random r)
         {
             StringBuilder sb = new StringBuilder();
             int numwords = r.Next(2, maxWordsInSubject + 1);
@@ -682,12 +687,12 @@ namespace LabBuilder
 
     }
 
-    class BodyCompositionRules
+    public class BodyCompositionRules
     {
         public int currentSentenceLength;
         public int currentParagraphLength;
     }
-    class GenUsersArgs
+    public class GenUsersArgs
     {
         public string DEPath;
         public int UserCount;
@@ -695,7 +700,7 @@ namespace LabBuilder
 
     }
 
-    class GenMailArgs
+    public class GenMailArgs
     {
         public string selectedOUPath;
         public string DefaultPassword;
@@ -804,9 +809,9 @@ namespace LabBuilder
         public int percentChanceOfAttachments;
         public int maxAttachments;
     }
-    
 
-    class GenMailUser
+
+    public class GenMailUser
     {
         public string smtpAddress;
         public int exchangeDBIndex;
