@@ -235,13 +235,14 @@ namespace LabBuilder
                 var dbsel = ExchangeDBListBox.SelectedItem as ExchangeDatabase;
 
                 //  make powershell command
-                string powershellcommand = "";
-                string powershell_command_format = "";
+                string powershellcommand;
+                string powershell_command_format;
 
                 if (sel.DE.Path.Length > 0)
                 {
                     string friendlyOUPath = "'" + sel.DE.Path.Substring(7) + "'";
                     powershell_command_format = @"
+Get-ReceiveConnector *client* | Set-ReceiveConnector -MessageRateLimit Unlimited
 Get-User -OrganizationalUnit {0} -resultsize {1} -Filter {{-not(alias -like '*' )}} | Select-Object -ExpandProperty samAccountName | Enable-Mailbox -Database '{2}' | ft
 ";
                     if (checkBoxMailboxLimit.IsChecked == false)
@@ -257,6 +258,7 @@ Get-User -OrganizationalUnit {0} -resultsize {1} -Filter {{-not(alias -like '*' 
                 {
                     // no OU selected, it's root
                     powershell_command_format = @"
+Get-ReceiveConnector *client* | Set-ReceiveConnector -MessageRateLimit Unlimited
 Get-User -resultsize {0} -Filter {{-not(alias -like '*' )}} | Select-Object -ExpandProperty samAccountName | Enable-Mailbox -Database '{1}' | ft
 ";
                     if (checkBoxMailboxLimit.IsChecked == false)
