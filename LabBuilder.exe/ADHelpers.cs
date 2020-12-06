@@ -1,11 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.DirectoryServices;
-using System.Windows.Input;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 
@@ -37,7 +32,7 @@ namespace LabBuilder
             _ds.SearchScope = SearchScope.OneLevel;
             _ds.Sort = so;
         }
-        public static string DefaultDomain = DefaultNamingContext.ToLower(System.Globalization.CultureInfo.InvariantCulture).Replace("dc=", "").Replace(',', '.');
+        public static string DefaultDomain = DefaultNamingContext.ToLower(CultureInfo.InvariantCulture).Replace("dc=", "").Replace(',', '.');
 
         public static string DefaultNamingContext
         {

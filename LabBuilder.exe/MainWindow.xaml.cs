@@ -149,8 +149,7 @@ namespace LabBuilder
         private void Create_Users_Click(object sender, RoutedEventArgs e)
         {
 
-            var sel = OUBrowser.SelectedItem as DirectoryEntryContext;
-            if (sel != null)
+            if (OUBrowser.SelectedItem is DirectoryEntryContext sel)
             {
                 ts.TraceEvent(TraceEventType.Verbose, 0, "OU selected: {0}", sel.DE.Path);
 
