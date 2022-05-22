@@ -11,8 +11,8 @@ namespace CreateListStringFromTextFile
     {
         static void Main(string[] args)
         {
-            string inputFilePath = string.Empty;
-            string encodingsetting = string.Empty;
+            string inputFilePath;
+            string encodingsetting;
             if (args.Length == 2)
             {
 
