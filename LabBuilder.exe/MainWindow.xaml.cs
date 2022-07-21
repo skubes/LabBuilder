@@ -131,7 +131,7 @@ namespace LabBuilder
 
             // update progress bar
 
-            sendMailProgress.Value = ((double)progress.messagesSent) / progress.numberOfMailsToSend * 100;
+            sendMailProgress.Value = (double)(progress.messagesSent + progress.errorsSending)  / progress.numberOfMailsToSend * 100;
 
             if (progress.cancelled == 1)
             {
